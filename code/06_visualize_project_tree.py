@@ -139,6 +139,10 @@ def build_tree_visualizer(base_packages):
             var currentlySelectedNode = null;
             
             network.on("click", function (params) {
+                // APAGAR el motor jerárquico en el primer clic para congelar las posiciones (x,y) actuales
+                // Así evitamos que al cambiar colores se recalcule el árbol y salte la pantalla
+                network.setOptions({ layout: { hierarchical: { enabled: false } } });
+                
                 if (params.nodes.length > 0) {
                     var clickedNode = params.nodes[0];
                     
