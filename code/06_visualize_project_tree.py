@@ -78,10 +78,9 @@ def build_tree_visualizer(base_packages):
         "hierarchical": {
           "enabled": true,
           "direction": "LR",
-          "sortMethod": "directed",
-          "nodeSpacing": 30,
+          "nodeSpacing": 40,
           "treeSpacing": 50,
-          "levelSeparation": 100,
+          "levelSeparation": 200,
           "blockShifting": true,
           "edgeMinimization": true,
           "parentCentralization": true
@@ -93,22 +92,32 @@ def build_tree_visualizer(base_packages):
     }
     """)
     
-    # Añadir nodos con estilos
+    # Calcular niveles manualmente (distancia mínima desde la raíz) para evitar huecos gigantes
+    node_levels = {}
+    for root in actual_roots:
+        if root in G_sub:
+            lengths = nx.single_source_shortest_path_length(G_sub, root)
+            for n, dist in lengths.items():
+                if n not in node_levels or dist < node_levels[n]:
+                    node_levels[n] = dist
+                    
+    # Añadir nodos con estilos y NIVEL explícito
     for node in G_sub.nodes():
-        if node in actual_roots: # <--- AHORA SÍ, USAR LAS RAÍCES REALES
-            color = "#ff4a4a" # Rojo para nodos raíz
-            size = 35
-            title = f"Raíz: {node}"
+        lvl = node_levels.get(node, 0)
+        if node in actual_roots:
+            color = "#ff4a4a"
+            size = 25
+            label = f"★ {node}"
         elif G_sub.out_degree(node) == 0:
-            color = "#4a9eff" # Azul para nodos hoja (no dependen de nada más)
-            size = 15
-            title = f"Hoja: {node}"
+            color = "#4a90e2"
+            size = 10
+            label = node
         else:
-            color = "#ffd166" # Amarillo para dependencias intermedias (transiciones)
-            size = 20
-            title = f"Intermedio: {node}"
+            color = "#f5a623"
+            size = 15
+            label = node
             
-        net.add_node(node, label=node, title=title, color=color, size=size)
+        net.add_node(node, label=label, color=color, size=size, shape="dot", level=lvl)
         
     # Añadir aristas
     for source, target in G_sub.edges():
@@ -127,11 +136,40 @@ def build_tree_visualizer(base_packages):
     // Esperar a que el grafo cargue
     setTimeout(function() {
         if (typeof network !== 'undefined') {
+            var currentlySelectedNode = null;
+            
             network.on("click", function (params) {
                 if (params.nodes.length > 0) {
-                    var selectedNode = params.nodes[0];
-                    var connectedNodes = network.getConnectedNodes(selectedNode);
-                    connectedNodes.push(selectedNode);
+                    var clickedNode = params.nodes[0];
+                    
+                    if (clickedNode === currentlySelectedNode) {
+                        // Toggle: clic en el mismo nodo restaura todo
+                        currentlySelectedNode = null;
+                        network.unselectAll();
+                        
+                        var allNodes = nodes.get();
+                        var nodeUpdates = [];
+                        for (var i = 0; i < allNodes.length; i++) {
+                            var n = allNodes[i];
+                            if (n.originalColor) {
+                                nodeUpdates.push({id: n.id, color: n.originalColor, font: {color: "white"}});
+                            }
+                        }
+                        nodes.update(nodeUpdates);
+                        
+                        var allEdges = edges.get();
+                        var edgeUpdates = [];
+                        for (var i = 0; i < allEdges.length; i++) {
+                            edgeUpdates.push({id: allEdges[i].id, hidden: false});
+                        }
+                        edges.update(edgeUpdates);
+                        return; // Salir de la función
+                    }
+                    
+                    // Click en un nuevo nodo: Aislar
+                    currentlySelectedNode = clickedNode;
+                    var connectedNodes = network.getConnectedNodes(clickedNode);
+                    connectedNodes.push(clickedNode);
                     
                     // Actualizar Nodos (hacerlos invisibles sin removerlos del motor matemático)
                     var allNodes = nodes.get();
@@ -161,7 +199,7 @@ def build_tree_visualizer(base_packages):
                     var edgeUpdates = [];
                     for (var i = 0; i < allEdges.length; i++) {
                         var e = allEdges[i];
-                        if (String(e.from) === String(selectedNode) || String(e.to) === String(selectedNode)) {
+                        if (String(e.from) === String(clickedNode) || String(e.to) === String(clickedNode)) {
                             edgeUpdates.push({id: e.id, hidden: false});
                         } else {
                             edgeUpdates.push({id: e.id, hidden: true});
@@ -171,6 +209,7 @@ def build_tree_visualizer(base_packages):
                     
                 } else {
                     // Click en el fondo: restaurar todo
+                    currentlySelectedNode = null;
                     var allNodes = nodes.get();
                     var nodeUpdates = [];
                     for (var i = 0; i < allNodes.length; i++) {
