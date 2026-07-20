@@ -65,6 +65,15 @@ Los paquetes identificados con mayor PageRank representan los pilares sistémico
 \end{tabular}
 \end{center}
 
+Para ilustrar la centralidad de estos paquetes en el ecosistema, se generó un grafo que extrae el núcleo (k-core aproximado) alrededor de este Top 10. Como se observa en la Figura \ref{fig:pypi_core_graph}, estos paquetes actúan como ``sumideros'' masivos (resaltados con mayor tamaño) hacia los cuales convergen miles de conexiones desde el resto del ecosistema, confirmando gráficamente su posición dominante y el elevado in-degree que capturan directa e indirectamente.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{code/pypi_core_graph.png}
+    \caption{Visualización del núcleo de dependencias de PyPI. Se destacan los 10 paquetes con mayor PageRank (nodos grandes), mostrando cómo estructuran y concentran la topología de la red a su alrededor.}
+    \label{fig:pypi_core_graph}
+\end{figure}
+
 \subsection{Divergencia PageRank vs. in-degree}
 El resultado metodológico más relevante es la comprobación de paquetes cuya criticidad
 sistémica resulta invisible para las métricas locales tradicionales. Al comparar el ranking de PageRank contra el de in-degree, se detectaron los siguientes casos anómalos de alto riesgo transitivo:
@@ -87,3 +96,15 @@ Para verificar la hipótesis respecto a la fragilidad del ecosistema, se calcul�
     \text{Cobertura}(S) = \frac{|\{p \in V : \exists\, q \in S, p \rightsquigarrow q\}|}{|V|}
 \]
 donde $p \rightsquigarrow q$ denota alcanzabilidad en el grafo inverso. Los resultados demostraron que los principales 10 paquetes cubren transitivamente el 51.23\% del ecosistema activo, confirmando que el fallo en cualquiera de ellos desencadenaría un impacto sistémico masivo.
+
+\subsection{Visualización de dependencias transitivas}
+Para comprender de manera intuitiva el alcance de la criticidad sistémica y el efecto de cascada, se implementó una visualización jerárquica de dependencias utilizando la librería \texttt{PyVis}. En la Figura \ref{fig:grafo_celery} se presenta la red de dependencias transitivas extraída para el paquete base \texttt{celery}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{fig_grafo_celery.png}
+    \caption{Grafo de dependencias transitivas de \texttt{celery}. El nodo raíz (rojo) propaga sus requerimientos a través de paquetes intermedios (amarillo) hasta llegar a los nodos sumidero u hojas (azul).}
+    \label{fig:grafo_celery}
+\end{figure}
+
+El layout jerárquico dispuesto de izquierda a derecha —estructurado en niveles topológicos mediante una Búsqueda en Anchura (BFS)— revela la densidad y profundidad de la cadena de suministro de software. Se evidencia cómo un paquete en las primeras capas del árbol ramifica sus requerimientos transitivos, propagando exponencialmente cualquier vulnerabilidad hacia cientos de paquetes subyacentes. Esta representación estática, similar a una red neuronal profunda, ilustra de manera visual la intrincada maraña que el algoritmo de PageRank modela matemáticamente, validando nuestra hipótesis sobre el riesgo oculto transitivo.
