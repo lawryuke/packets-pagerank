@@ -14,13 +14,13 @@ def filter_pypi_dataset():
     
     # Filtrar projects.csv
     # Usamos scan_csv (lazy) para no saturar la memoria
-    projects_csv = DATASET_DIR / "projects-1.6.0-2020-01-12.csv"
+    projects_csv = DATASET_DIR / "projects_with_repository_fields-1.6.0-2020-01-12.csv"
     pypi_projects_file = PROCESSED_DIR / "pypi_projects.parquet"
     
     if not pypi_projects_file.exists():
         (
-            pl.scan_csv(projects_csv, ignore_errors=True, infer_schema_length=10000)
-            .filter(pl.col("Platform") == "Pypi")
+            pl.scan_csv(projects_csv, ignore_errors=True, infer_schema_length=10000, truncate_ragged_lines=True)
+            .filter(pl.col("Platform").is_in(["Pypi", "pypi", "PyPI"]))
             .sink_parquet(pypi_projects_file)
         )
         print("Proyectos de PyPI guardados en pypi_projects.parquet")
@@ -30,14 +30,14 @@ def filter_pypi_dataset():
     print("\nFiltrando dependencias de PyPI (solo runtime)...")
     
     # Filtrar dependencies.csv
-    deps_csv = DATASET_DIR / "dependencies-1.6.0-2020-01-12.csv"
+    deps_csv = DATASET_DIR / "repository_dependencies-1.6.0-2020-01-12.csv"
     pypi_deps_file = PROCESSED_DIR / "pypi_dependencies.parquet"
     
     if not pypi_deps_file.exists():
         (
-            pl.scan_csv(deps_csv, ignore_errors=True, infer_schema_length=10000)
+            pl.scan_csv(deps_csv, ignore_errors=True, infer_schema_length=10000, truncate_ragged_lines=True)
             .filter(
-                (pl.col("Platform") == "Pypi") & 
+                (pl.col("Manifest Platform").is_in(["Pypi", "pypi", "PyPI"])) & 
                 (pl.col("Dependency Kind") == "runtime")
             )
             .sink_parquet(pypi_deps_file)

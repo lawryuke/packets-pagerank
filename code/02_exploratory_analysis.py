@@ -12,14 +12,14 @@ def query_with_duckdb():
     # Ejemplo de consulta: contar filas totales en un archivo
     try:
         # Intenta consultar el archivo parquet (muy rápido)
-        parquet_file = PROCESSED_DIR / "projects-1.6.0-2020-01-12.parquet"
+        parquet_file = PROCESSED_DIR / "projects_with_repository_fields-1.6.0-2020-01-12.parquet"
         if parquet_file.exists():
             print(f"Consultando {parquet_file.name}...")
             result = con.execute(f"SELECT count(*) FROM '{parquet_file}'").fetchone()
             print(f"Total de proyectos (Parquet): {result[0]}")
         else:
             # Si no existe, intenta con el CSV directamente (DuckDB puede leer CSV, pero tarda más)
-            csv_file = DATASET_DIR / "projects-1.6.0-2020-01-12.csv"
+            csv_file = DATASET_DIR / "projects_with_repository_fields-1.6.0-2020-01-12.csv"
             print(f"Parquet no encontrado. Consultando CSV: {csv_file.name}...")
             result = con.execute(f"SELECT count(*) FROM read_csv_auto('{csv_file}')").fetchone()
             print(f"Total de proyectos (CSV): {result[0]}")
@@ -30,7 +30,7 @@ def query_with_duckdb():
 def query_with_polars():
     print("\n--- Consultas con Polars ---")
     try:
-        parquet_file = PROCESSED_DIR / "projects-1.6.0-2020-01-12.parquet"
+        parquet_file = PROCESSED_DIR / "projects_with_repository_fields-1.6.0-2020-01-12.parquet"
         if not parquet_file.exists():
             print(f"El archivo {parquet_file.name} no existe. Ejecuta primero 01_convert_to_parquet.py")
             return

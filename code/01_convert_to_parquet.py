@@ -14,7 +14,7 @@ def convert_csv_to_parquet(csv_file: Path, parquet_file: Path):
     # sink_parquet procesa y escribe el resultado por lotes (streaming)
     try:
         (
-            pl.scan_csv(csv_file, ignore_errors=True, infer_schema_length=10000)
+            pl.scan_csv(csv_file, ignore_errors=True, infer_schema_length=10000, truncate_ragged_lines=True)
             .sink_parquet(parquet_file)
         )
         print(f"Finalizado {parquet_file.name}")
@@ -28,8 +28,19 @@ def main():
 
     PROCESSED_DIR.mkdir(exist_ok=True)
     
-    # Procesar todos los archivos CSV en el directorio del dataset
-    for csv_file in DATASET_DIR.glob("*.csv"):
+    necessary_files = [
+        "projects_with_repository_fields-1.6.0-2020-01-12.csv",
+        "repository_dependencies-1.6.0-2020-01-12.csv"
+    ]
+    
+    # Procesar solo los archivos necesarios
+    for filename in necessary_files:
+        csv_file = DATASET_DIR / filename
+        
+        if not csv_file.exists():
+            print(f"Advertencia: No se encontró el archivo {filename}")
+            continue
+            
         parquet_file = PROCESSED_DIR / f"{csv_file.stem}.parquet"
         
         # Si el archivo parquet no existe, lo convertimos

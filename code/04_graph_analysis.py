@@ -25,7 +25,7 @@ def load_pypi_graph():
     G = nx.DiGraph()
     
     # La arista (A -> B) indica que A depende de B
-    edges = list(zip(df_deps["Project Name"], df_deps["Dependency Name"]))
+    edges = list(zip(df_deps["Repository Name with Owner"], df_deps["Dependency Project Name"]))
     G.add_edges_from(edges)
     
     return G
@@ -146,6 +146,11 @@ def analyze_centrality_and_communities(G, H, a, nodes):
     print("\nPaquetes con riesgo transitivo oculto (Alto PR, Bajo In-Degree):")
     print(anomalies[['Package', 'PR_Rank', 'InDeg_Rank', 'Rank_Diff']].to_string(index=False))
     
+    # Guardar resultados en un archivo CSV
+    results_file = PROCESSED_DIR / "pagerank_results.csv"
+    df_results.to_csv(results_file, index=False)
+    print(f"\n¡Resultados completos guardados exitosamente en {results_file}!")
+    
     return df_results.head(10)['Package'].tolist()
 
 def analyze_transitive_coverage(G, top_packages):
@@ -189,7 +194,6 @@ def main():
     
     elapsed = time.time() - start_time
     print(f"\n¡Análisis completado en {elapsed/60:.2f} minutos!")
-    print("Los datos están listos para completar las tablas del Capítulo 4 en el TIF.")
 
 if __name__ == "__main__":
     main()

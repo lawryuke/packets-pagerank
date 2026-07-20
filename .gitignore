@@ -9,5 +9,5 @@
 *.bcf
 *.run.xml
 *.gz
-dataset/
+dataset*/
 code/.venv

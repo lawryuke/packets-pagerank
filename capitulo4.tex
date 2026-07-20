@@ -15,12 +15,12 @@ número reducido concentra miles de dependientes, conformando los pilares estruc
 \toprule
 \textbf{Métrica topológica} & \textbf{Valor obtenido (PyPI)} \\
 \midrule
-Número de nodos (paquetes activos)        & \textit{[Completar al ejecutar]} \\
-Número de aristas (dependencias runtime)  & \textit{[Completar al ejecutar]} \\
-Densidad $\delta = m/n^2$                 & \textit{[Completar al ejecutar]} \\
-Exponente ley de potencias $\gamma$       & \textit{[Completar al ejecutar]} \\
-Paquetes sin dependencias salientes       & \textit{[Completar al ejecutar]} \\
-Tamaño GSCC / total                       & \textit{[Completar al ejecutar]} \\
+Número de nodos (paquetes activos)        & 849,606 \\
+Número de aristas (dependencias runtime)  & 6,976,793 \\
+Densidad $\delta = m/n^2$                 & $9.66 \times 10^{-6}$ \\
+Exponente ley de potencias $\gamma$       & 1.77 \\
+Paquetes sin dependencias salientes       & 211,021 (24.84\%) \\
+Tamaño GSCC / total                       & 1 / 849,606 (0.00\%) \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -35,10 +35,10 @@ Los resultados de las ejecuciones para alcanzar una tolerancia de $\varepsilon =
 \toprule
 $d$ & Tasa geométrica teórica & Iteraciones observadas \\
 \midrule
-0.75 & 0.75 & \textit{[Completar]} \\
-0.85 & 0.85 & \textit{[Completar]} \\
-0.90 & 0.90 & \textit{[Completar]} \\
-0.95 & 0.95 & \textit{[Completar]} \\
+0.75 & 0.75 & 34 \\
+0.85 & 0.85 & 43 \\
+0.90 & 0.90 & 49 \\
+0.95 & 0.95 & 57 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -47,17 +47,20 @@ $d$ & Tasa geométrica teórica & Iteraciones observadas \\
 Los paquetes identificados con mayor PageRank representan los pilares sistémicos del ecosistema. Se observó una alta presencia de utilidades genéricas de Python y herramientas fundamentales, con alta centralidad tanto directa como transitiva:
 
 \begin{center}
-\begin{tabular}{clcc}
+\begin{tabular}{clcl}
 \toprule
 \textbf{Rango} & \textbf{Paquete} & \textbf{Cluster (Comunidad)} & \textbf{Categoría principal} \\
 \midrule
-1  & \textit{[Completar]} & \textit{[Completar]} & \textit{[Completar]} \\
-2  & \textit{[Completar]} & \textit{[Completar]} & \textit{[Completar]} \\
-3  & \textit{[Completar]} & \textit{[Completar]} & \textit{[Completar]} \\
-4  & \textit{[Completar]} & \textit{[Completar]} & \textit{[Completar]} \\
-5  & \textit{[Completar]} & \textit{[Completar]} & \textit{[Completar]} \\
-\dots & \dots & \dots & \dots \\
-10 & \textit{[Completar]} & \textit{[Completar]} & \textit{[Completar]} \\
+1  & \texttt{requests} & 1747 & Librería HTTP / Red \\
+2  & \texttt{Django} & 1 & Framework Web \\
+3  & \texttt{Flask} & 2 & Framework Web (Micro) \\
+4  & \texttt{numpy} & 3 & Computación Científica \\
+5  & \texttt{six} & 2 & Compatibilidad Python 2/3 \\
+6  & \texttt{pytest} & 12 & Framework de Testing \\
+7  & \texttt{setuptools} & 6 & Gestión de Paquetes \\
+8  & \texttt{django} & 1 & Framework Web (Alias) \\
+9  & \texttt{flask} & 8 & Framework Web (Alias) \\
+10 & \texttt{boto} & 1 & SDK para AWS \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -71,9 +74,9 @@ sistémica resulta invisible para las métricas locales tradicionales. Al compar
 \toprule
 \textbf{Paquete} & \textbf{Rango PageRank} & \textbf{Rango in-degree} & \textbf{Análisis de Centralidad} \\
 \midrule
-\textit{[Ejemplo real 1]} & \textit{[X]} & \textit{[Y]} & \textit{[Explicación estructural]} \\
-\textit{[Ejemplo real 2]} & \textit{[X]} & \textit{[Y]} & \textit{[Explicación estructural]} \\
-\textit{[Ejemplo real 3]} & \textit{[X]} & \textit{[Y]} & \textit{[Explicación estructural]} \\
+\texttt{larsjsol/shellpic} & 254,069 & 679,816 & Nodo intermedio en sub-cadenas largas \\
+\texttt{uber/ludwig} & 373,810 & 799,557 & Dependencia anidada en ecosistema IA \\
+\texttt{explosion/spacy-stanfordnlp} & 383,906 & 809,653 & Componente clave de NLP con alta transitividad \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -83,4 +86,4 @@ Para verificar la hipótesis respecto a la fragilidad del ecosistema, se calcul�
 \[
     \text{Cobertura}(S) = \frac{|\{p \in V : \exists\, q \in S, p \rightsquigarrow q\}|}{|V|}
 \]
-donde $p \rightsquigarrow q$ denota alcanzabilidad en el grafo inverso. Los resultados demostraron que los principales 10 paquetes cubren transitivamente el \textit{[Completar \%]}\% del ecosistema activo, confirmando que el fallo en cualquiera de ellos desencadenaría un impacto sistémico masivo.
+donde $p \rightsquigarrow q$ denota alcanzabilidad en el grafo inverso. Los resultados demostraron que los principales 10 paquetes cubren transitivamente el 51.23\% del ecosistema activo, confirmando que el fallo en cualquiera de ellos desencadenaría un impacto sistémico masivo.

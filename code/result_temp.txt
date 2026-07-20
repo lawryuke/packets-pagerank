@@ -1,0 +1,100 @@
+(.venv) rsk ~/Documents/aede/tif/packets-pagerank/code [main]  python 01_convert_to_parquet.py
+Iniciando conversión de CSV a Parquet...
+Nota: Para un dataset de 24GB, esto puede tomar un tiempo considerable.
+Convirtiendo projects_with_repository_fields-1.6.0-2020-01-12.csv a projects_with_repository_fields-1.6.0-2020-01-12.parquet...
+Finalizado projects_with_repository_fields-1.6.0-2020-01-12.parquet
+Convirtiendo repository_dependencies-1.6.0-2020-01-12.csv a repository_dependencies-1.6.0-2020-01-12.parquet...
+Finalizado repository_dependencies-1.6.0-2020-01-12.parquet
+
+(.venv) rsk ~/Documents/aede/tif/packets-pagerank/code [main]  python 02_exploratory_analysis.py
+Ejemplos de análisis exploratorio (EDA) de datos masivos out-of-core.
+--- Consultas con DuckDB ---
+Consultando projects_with_repository_fields-1.6.0-2020-01-12.parquet...
+Total de proyectos (Parquet): 4612919
+
+--- Consultas con Polars ---
+Top 10 Lenguajes de Programación:
+shape: (10, 2)
+┌────────────┬─────────┐
+│ Language   ┆ count   │
+│ ---        ┆ ---     │
+│ str        ┆ u32     │
+╞════════════╪═════════╡
+│ Go         ┆ 1649375 │
+│ null       ┆ 1176648 │
+│ JavaScript ┆ 668045  │
+│ PHP        ┆ 268265  │
+│ Python     ┆ 137786  │
+│ Ruby       ┆ 108126  │
+│ TypeScript ┆ 105212  │
+│ C#         ┆ 73378   │
+│ Java       ┆ 70965   │
+│ CSS        ┆ 40668   │
+└────────────┴─────────┘
+
+
+(.venv) rsk ~/Documents/aede/tif/packets-pagerank/code [main]  python 03_filter_pypi.py
+Filtrando proyectos de PyPI...
+Proyectos de PyPI guardados en pypi_projects.parquet
+
+Filtrando dependencias de PyPI (solo runtime)...
+Dependencias de PyPI guardadas en pypi_dependencies.parquet
+¡Filtrado completado! Ahora puedes ejecutar los scripts del Capítulo 4.
+(.venv) rsk ~/Documents/aede/tif/packets-pagerank/code [main]  python 04_graph_analysis.py
+1. Cargando datos de PyPI (previamente filtrados)...
+2. Construyendo grafo dirigido con NetworkX...
+
+--- 4.1 Topología del grafo de dependencias ---
+Número de nodos (paquetes activos): 849606
+Número de aristas (dependencias runtime): 6976793
+Densidad: 9.665431e-06
+Paquetes sin dependencias salientes: 211021 (24.84%)
+Calculando componente fuertemente conexa (GSCC)...
+Tamaño GSCC / total: 1 / 849606 (0.00%)
+Ajustando distribución de grado (Ley de potencias)...
+Exponente ley de potencias gamma: 1.77
+
+Construyendo Matriz de Transición H...
+
+--- 4.2 Convergencia del método de la potencia ---
+d=0.75 -> Convergencia en 34 iteraciones
+d=0.85 -> Convergencia en 43 iteraciones
+d=0.90 -> Convergencia en 49 iteraciones
+d=0.95 -> Convergencia en 57 iteraciones
+
+--- 4.3 Ranking de paquetes críticos ---
+Calculando PageRank final con d=0.85...
+Calculando comunidades (Louvain) en el grafo no dirigido...
+
+Top 10 Paquetes por PageRank:
+ PR_Rank    Package  Cluster  PageRank  InDegree
+       1   requests     1747  0.017275    149907
+       2     Django        1  0.011372     89586
+       3      Flask        2  0.009272     83652
+       4      numpy        3  0.009073     85717
+       5        six        2  0.006765    119928
+       6     pytest       12  0.005409     60595
+       7 setuptools        6  0.004866     28403
+       8     django        1  0.004616     28703
+       9      flask        8  0.004316     31438
+      10       boto        1  0.004294     22172
+
+--- 4.4 Divergencia PageRank vs. in-degree ---
+Correlación de Spearman (PageRank vs In-Degree): rho = 0.9896
+
+Paquetes con riesgo transitivo oculto (Alto PR, Bajo In-Degree):
+                    Package  PR_Rank  InDeg_Rank  Rank_Diff
+  ewjoachim/restaurants-api   380826      806573     425747
+          larsjsol/shellpic   254069      679816     425747
+explosion/spacy-stanfordnlp   383906      809653     425747
+      yuhui/landtransportsg   421325      847072     425747
+                uber/ludwig   373810      799557     425747
+
+--- 4.5 Análisis de cobertura transitiva ---
+Calculando cobertura transitiva de los Top 10 paquetes...
+Los Top 10 paquetes cubren transitivamente 435219 paquetes.
+Esto representa el 51.23% de todo el ecosistema PyPI activo.
+
+¡Análisis completado en 4.83 minutos!
+Los datos están listos para completar las tablas del Capítulo 4 en el TIF.
+
