@@ -1,0 +1,255 @@
+% ════════════════════════════════════════════════════════════
+\section{CAPÍTULO I: PLANTEAMIENTO DEL PROBLEMA}
+% ════════════════════════════════════════════════════════════
+
+\subsection{Planteamiento de problema}
+
+El desarrollo de software moderno depende casi universalmente de paquetes de terceros.
+Cuando un desarrollador instala una librería desde el \textit{Python Package Index}
+(PyPI), no instala únicamente ese paquete: sino que instala un árbol de dependencias que puede
+involucrar decenas o cientos de paquetes adicionales, cada uno mantenido por distintos
+equipos con distintos niveles de actividad y seguridad. Este fenómeno genera lo que
+la literatura de ingeniería de software denomina \textit{supply chain risk}: el riesgo
+de que un fallo en un componente aparentemente secundario se propague en cascada y
+comprometa a miles de proyectos que dependen de él \autocite{zimmermann2019small}.
+
+El problema central es de naturaleza estructural y probabilística: dada una red de
+$n$ paquetes interconectados mediante relaciones de dependencia, \textbf{¿cómo
+identificar qué paquetes representan un riesgo sistémico desproporcionado para el
+ecosistema, antes de que una vulnerabilidad sea registrada?}
+
+Casos reales ilustran la gravedad del problema. En 2016, la eliminación del paquete
+\texttt{left-pad} (11 líneas de código) de npm provocó que React, Babel y miles de
+proyectos de producción dejaran de compilar en todo el mundo durante horas
+\autocite{decan2019impact}. En 2021, la vulnerabilidad en \texttt{log4j} expuso
+servidores de Amazon, Apple y Cloudflare porque nadie tenía un mapa claro del
+alcance transitivo de esa dependencia \autocite{cve-2021-44228}. En ambos casos, el problema no era la
+ausencia de herramientas de escaneo, sino la ausencia de una \textbf{métrica
+global de criticidad sistémica} que hubiera permitido priorizar auditorías antes
+del incidente.
+
+Las herramientas actuales (Dependabot, Snyk, \texttt{pip-audit}) analizan proyectos
+individualmente y de forma reactiva: actúan cuando ya existe un CVE registrado.
+Ninguna modela el ecosistema completo como una red y ninguna estima la propagación
+transitiva del riesgo sobre su estructura.
+
+\subsection{Justificación del problema}
+
+\subsubsection{Justificación teórica}
+El grafo de dependencias de PyPI es un sistema complejo cuya estructura determina
+la dinámica de propagación de fallos. Modelarlo como una Cadena de Markov en tiempo
+discreto permite aplicar directamente los teoremas de Perron–Frobenius, la propiedad
+de ergodicidad y la convergencia del método de la potencia a un problema de
+ingeniería de software relevante y abierto. El PageRank, como distribución
+estacionaria de dicha cadena, captura tanto la centralidad directa como la
+centralidad transitiva de cada paquete, lo que lo convierte en un candidato
+natural para medir riesgo sistémico en redes de dependencias.
+
+\subsubsection{Justificación práctica}
+La seguridad de la cadena de suministro de software (\textit{software supply chain
+security}) es una de las áreas de mayor actividad en la industria. El gobierno de
+Estados Unidos emitió en 2021 una orden ejecutiva que exige a los proveedores de
+software generar \textit{Software Bills of Materials} (SBOMs) para identificar
+dependencias \autocite{kikas2017structure}. Una métrica de PageRank sobre PyPI
+ofrecería a auditores, mantenedores y organizaciones de seguridad una herramienta
+proactiva para priorizar esfuerzos antes de que ocurran incidentes.
+
+\subsubsection{Justificación metodológica}
+El trabajo integra tres ejes del curso en un pipeline coherente:
+\begin{enumerate}
+    \item \textbf{Análisis exploratorio de grafos}: caracterización topológica del
+          grafo de dependencias (distribución de grado, componentes, densidad).
+    \item \textbf{Cadenas de Markov}: construcción de la matriz de transición,
+          verificación de ergodicidad y cálculo de la distribución estacionaria
+          (PageRank).
+    \item \textbf{Análisis espacial}: detección de comunidades y visualización
+          del grafo como un espacio de clusters temáticos del ecosistema.
+\end{enumerate}
+
+\subsection{Determinación, delimitación del problema}
+
+\begin{description}[style=nextline]
+    \item[Temática]
+        Aplicación de Cadenas de Markov en tiempo discreto y PageRank para la
+        identificación de paquetes sistémicamente críticos en PyPI. No se abordan
+        extensiones como PageRank personalizado, análisis de vulnerabilidades
+        específicas (CVEs), ni métricas de calidad de código de las dependencias.
+
+    \item[Datos]
+        Se utilizará el dataset de dependencias de PyPI disponible en
+        \textit{libraries.io} \autocite{librariesio}, que registra las relaciones
+        de dependencia entre paquetes publicados en PyPI. El análisis se
+        restringirá a la componente gigante del grafo para garantizar la
+        unicidad de la distribución estacionaria antes de aplicar la corrección
+        de \textit{teleportation}.
+
+    \item[Temporal]
+        Snapshot estático del ecosistema (sin modelado de evolución temporal
+        del grafo de dependencias).
+
+    \item[Computacional]
+        Implementación en Python 3.11 con las bibliotecas \texttt{NumPy},
+        \texttt{SciPy} (álgebra lineal dispersa), \texttt{NetworkX} y
+        \texttt{python-igraph} para análisis de comunidades.
+\end{description}
+
+\subsection{Interrogantes del problema}
+
+\begin{quote}
+\textbf{Problema general:}
+¿En qué medida el PageRank calculado sobre el grafo de dependencias de PyPI,
+fundamentado en la distribución estacionaria de una Cadena de Markov, constituye
+un mejor predictor del impacto sistémico de un fallo que las métricas locales
+disponibles actualmente (número de descargas, número de dependientes directos,
+presencia de CVEs)?
+\end{quote}
+
+\begin{quote}
+\textbf{Problemas específicos:}
+\begin{enumerate}[label=\textbf{PE\arabic*.}]
+    \item ¿Cuál es la estructura topológica del grafo de dependencias de PyPI y bajo
+          qué condiciones la Cadena de Markov asociada garantiza una distribución
+          estacionaria única?
+    \item ¿Qué paquetes obtienen mayor PageRank en el ecosistema PyPI y en qué medida
+          este ranking difiere del ordenamiento por métricas locales (in-degree,
+          número de descargas)?
+    \item ¿Cómo se distribuyen los paquetes de alto PageRank entre los distintos
+          subcomunidades (clusters) del ecosistema, y qué estructura espacial
+          presenta la red?
+    \item ¿Cuántos proyectos activos de PyPI dependen transitivamente de los
+          10 paquetes con mayor PageRank, y qué proporción representa respecto
+          al total del ecosistema?
+\end{enumerate}
+\end{quote}
+
+\subsection{Objetivos}
+
+\subsubsection{Objetivo General}
+Identificar los paquetes sistémicamente críticos del ecosistema PyPI mediante el
+cálculo del vector PageRank sobre su grafo de dependencias, modelado como la
+distribución estacionaria de una Cadena de Markov, y comparar este ranking con
+métricas locales de centralidad para evaluar su capacidad predictiva del riesgo
+sistémico.
+
+\subsubsection{Objetivos Específicos}
+\begin{enumerate}[label=\textbf{OE\arabic*.}]
+    \item Construir el grafo dirigido de dependencias de PyPI a partir del dataset
+          de \textit{libraries.io} y caracterizar su topología mediante métricas
+          exploratorias: distribución de grado, densidad, coeficiente de
+          agrupamiento y componentes conexas.
+
+    \item Formalizar la Cadena de Markov sobre el grafo de dependencias mediante
+          la construcción de la matriz de transición $\mathbf{H}$, la corrección
+          de nodos sumidero y la matriz de Google $\mathbf{G}(d)$, verificando
+          las condiciones de ergodicidad mediante el Teorema de Perron–Frobenius.
+
+    \item Calcular el vector PageRank mediante el método de la potencia iterativo
+          para $d \in \{0.75, 0.85, 0.90, 0.95\}$ y analizar la sensibilidad del
+          ranking Top-20 al factor de amortiguamiento.
+
+    \item Detectar comunidades en el grafo de dependencias mediante el algoritmo
+          de Louvain y analizar la distribución espacial de los paquetes de mayor
+          PageRank entre los clusters identificados.
+
+    \item Comparar el ranking por PageRank con los rankings por in-degree,
+          número de descargas y número de dependientes directos, cuantificando
+          las diferencias mediante correlación de Spearman $\rho_s$.
+\end{enumerate}
+
+\subsection{Variables}
+
+\subsubsection{Variables Dependientes}
+\begin{center}
+\begin{tabular}{p{3.5cm} p{9cm}}
+\toprule
+\textbf{Nombre} & \textbf{Vector PageRank} $\mathbf{r} = (r_1, r_2, \ldots, r_n)^\top$ \\
+\midrule
+Definición conceptual &
+    Importancia sistémica global de cada paquete, definida como la probabilidad
+    de que un agente aleatorio que navega el grafo de dependencias se encuentre
+    en dicho paquete en el estado estacionario. \\[6pt]
+Definición operacional &
+    Componente $i$-ésima del vector propio dominante (autovalor $\lambda_1 = 1$)
+    de la matriz de Google $\mathbf{G}(d)$:
+    \[
+        \mathbf{r}^* = \lim_{k \to \infty} \mathbf{G}(d)^k \, \mathbf{r}^{(0)},
+        \quad \mathbf{r}^{(0)} = \tfrac{1}{n}\mathbf{1}
+    \]  \\[6pt]
+Tipo & Cuantitativa continua (probabilidad: $r_i \in [0,1]$, $\sum_i r_i = 1$) \\[6pt]
+Escala & Razón \\[6pt]
+Indicadores &
+    \begin{itemize}[nosep]
+        \item Rango ordinal del paquete (posición en el ranking global)
+        \item Correlación de Spearman $\rho_s$ vs.\ métricas locales
+        \item Proporción del ecosistema cubierta por los Top-$k$ paquetes
+    \end{itemize} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{Variables Independientes}
+\begin{center}
+\begin{tabular}{p{3.5cm} p{3.5cm} p{2.5cm} p{3cm}}
+\toprule
+\textbf{Variable} & \textbf{Definición operacional} & \textbf{Tipo} & \textbf{Rango / Valores} \\
+\midrule
+Factor de amortiguamiento $d$ &
+    Probabilidad de que el agente siga una dependencia en lugar de teleportarse;
+    controla la mezcla entre $\mathbf{H}$ y la distribución uniforme.
+    $\mathbf{G}(d) = d\mathbf{A} + (1-d)\mathbf{E}/n$ &
+    Cuantitativa continua &
+    $\{0.75,\, 0.85,\, 0.90,\, 0.95\}$ \\[10pt]
+In-degree del paquete &
+    Número de paquetes que lo declaran como dependencia directa. &
+    Cuantitativa discreta &
+    $k^{\text{in}} \in \mathbb{N}_0$ \\[10pt]
+Número de descargas &
+    Total de descargas en PyPI (últimos 30 días, fuente BigQuery). &
+    Cuantitativa discreta &
+    $\geq 0$ \\[10pt]
+Estructura del grafo $G=(V,E)$ &
+    Número de paquetes $|V|=n$ y dependencias $|E|=m$; densidad $\delta = m/n^2$. &
+    Cuantitativa (fija) &
+    Dataset libraries.io \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{Variable Interviniente}
+\begin{description}
+    \item[Nodos sumidero (\textit{dangling nodes})] Paquetes sin dependencias
+        salientes (\texttt{out-degree}$=0$), es decir, paquetes que no requieren
+        ninguna otra librería. Representan un sumidero en la cadena que rompe la
+        condición de estocasticidad de $\mathbf{H}$. Se corrigen reemplazando
+        su columna por $\mathbf{1}/n$ para obtener la matriz estocástica
+        $\mathbf{A}$.
+\end{description}
+
+\subsection{Hipótesis}
+
+\subsubsection{Hipótesis General}
+\begin{quote}
+El PageRank calculado sobre el grafo de dependencias de PyPI, como distribución
+estacionaria de una Cadena de Markov ergódica, identifica un conjunto de paquetes
+cuyo impacto transitivo sobre el ecosistema es significativamente mayor al
+predicho por métricas locales (in-degree, número de descargas), evidenciado por
+una correlación de Spearman $\rho_s < 0.80$ entre el ranking por PageRank y
+el ranking por in-degree normalizado.
+\end{quote}
+
+\subsubsection{Hipótesis Específicas}
+\begin{enumerate}[label=\textbf{H\arabic*.}]
+    \item El grafo de dependencias de PyPI presenta una distribución de grado con
+          cola pesada (ley de potencias), lo que implica la existencia de un
+          reducido conjunto de paquetes que concentran la mayor parte de las
+          dependencias del ecosistema.
+    \item Los 10 paquetes con mayor PageRank cubren, de forma transitiva, más
+          del 60\% de los proyectos activos en PyPI, evidenciando un riesgo
+          sistémico altamente concentrado.
+    \item Existen paquetes con PageRank significativamente superior a su in-degree
+          normalizado, lo que indica que reciben masa de probabilidad de forma
+          transitiva a través de dependencias de alta centralidad.
+    \item Los paquetes de mayor PageRank se concentran en un número reducido de
+          comunidades del grafo (clusters del ecosistema data science, web y
+          criptografía), revelando una estructura espacial no aleatoria del riesgo.
+\end{enumerate}

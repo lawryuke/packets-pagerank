@@ -1,0 +1,173 @@
+% ════════════════════════════════════════════════════════════
+\section{CAPÍTULO III: METODOLOGÍA DE INVESTIGACIÓN}
+% ════════════════════════════════════════════════════════════
+
+\subsection{Técnicas e Instrumentos}
+\subsubsection{Técnicas}
+Minería de datos y análisis exploratorio de grafos (Data Mining \& Network Analysis), así como el modelado matemático computacional mediante cadenas de Markov en tiempo discreto.
+\subsubsection{Instrumentos}
+Lenguaje de programación Python 3.11, utilizando bibliotecas de análisis de redes computacionales (\texttt{NetworkX}, \texttt{python-igraph}) y procesamiento de álgebra lineal dispersa (\texttt{SciPy}, \texttt{NumPy}). Además, se utilizará el entorno de Jupyter Notebooks para la ejecución y visualización de resultados.
+
+\subsection{Campo de Verificación}
+\subsubsection{Ámbito Geográfico}
+Debido a la naturaleza digital del problema, el ámbito no es geográfico físico, sino un ecosistema global de código abierto, específicamente el \textit{Python Package Index} (PyPI).
+\subsubsection{Temporalidad}
+Snapshot estático del ecosistema de dependencias correspondiente a la fecha de extracción del dataset público alojado en \textit{libraries.io}.
+
+\subsection{Población y Muestra}
+\subsubsection{Población}
+La totalidad de los proyectos y paquetes de software registrados históricamente en PyPI (aproximadamente 500,000 paquetes).
+\subsubsection{Muestra}
+Subconjunto de paquetes activos seleccionados para el estudio. Se filtrarán aquellos paquetes con más de 100 descargas mensuales para garantizar la relevancia en entornos de producción, constituyendo una muestra de aproximadamente 100,000 paquetes activos.
+
+\subsection{Recursos Necesarios}
+\subsubsection{Recursos Humanos}
+Los autores de la presente investigación.
+\subsubsection{Recursos Materiales}
+Estación de trabajo o computadora personal con entorno de ejecución de Python y suficiente capacidad de memoria RAM para almacenar el grafo disperso en memoria y procesar las iteraciones del algoritmo.
+\subsubsection{Recursos Financieros}
+Recursos propios (costos de energía eléctrica y acceso a internet). Herramientas y bibliotecas de código abierto utilizadas sin costo de licenciamiento.
+
+\subsection{Estrategia de Recolección de Datos}
+
+La información para esta investigación no se obtendrá mediante instrumentos cualitativos o encuestas de campo, sino a través de la extracción, procesamiento y estructuración de bases de datos públicas disponibles para la comunidad académica.
+
+\subsubsection{Fuente de Datos: libraries.io – PyPI dependency graph}
+El dataset de \textit{libraries.io} \autocite{librariesio} provee un snapshot
+completo de las dependencias declaradas entre paquetes de PyPI en formato CSV,
+con los siguientes campos relevantes:
+\begin{itemize}
+    \item \texttt{Project Name}: nombre del paquete dependiente.
+    \item \texttt{Dependency Name}: nombre del paquete requerido.
+    \item \texttt{Dependency Kind}: tipo de dependencia (\texttt{runtime},
+          \texttt{development}, \texttt{optional}).
+\end{itemize}
+El análisis se restringe a dependencias de tipo \texttt{runtime}, que son las
+únicas relevantes para la propagación de fallos en producción. 
+
+\subsubsection{Pipeline de análisis}
+\begin{enumerate}
+    \item \textbf{Carga y preprocesamiento}: lectura del CSV de libraries.io;
+          filtrado de dependencias \texttt{runtime}; eliminación de paquetes
+          con menos de 100 descargas mensuales; construcción del grafo dirigido
+          con \texttt{NetworkX}.
+    \item \textbf{Análisis exploratorio topológico}: cálculo de distribución
+          de grado (in/out), ajuste de ley de potencias, identificación de
+          componentes fuertemente conexas, coeficiente de agrupamiento global.
+    \item \textbf{Construcción de la cadena de Markov}: extracción de la
+          matriz $\mathbf{H}$ en formato CSR (\textit{Compressed Sparse Row});
+          identificación de nodos sumidero; construcción de $\mathbf{A}$ y
+          $\mathbf{G}(d)$.
+    \item \textbf{Cálculo del PageRank}: método de la potencia iterativo para
+          $d \in \{0.75, 0.85, 0.90, 0.95\}$ hasta
+          $\|\mathbf{r}^{(k+1)}-\mathbf{r}^{(k)}\|_1 < 10^{-8}$;
+          registro de la curva de convergencia.
+    \item \textbf{Detección de comunidades}: algoritmo de Louvain sobre el
+          grafo no dirigido subyacente; asignación de cluster a cada paquete;
+          visualización con layout ForceAtlas2.
+    \item \textbf{Análisis comparativo}: correlación de Spearman $\rho_s$
+          entre ranking PageRank y rankings por in-degree, descargas, y
+          número de dependientes directos; identificación de paquetes con
+          mayor divergencia entre PageRank e in-degree.
+    \item \textbf{Análisis de cobertura transitiva}: para los Top-$k$
+          paquetes por PageRank, cálculo del conjunto de paquetes que
+          dependen de ellos transitivamente (BFS inverso), y estimación
+          del porcentaje del ecosistema cubierto.
+\end{enumerate}
+
+\subsubsection{Implementación en Python}
+\begin{lstlisting}[style=pythonstyle,
+    caption={Construcción del grafo de dependencias desde libraries.io}]
+import pandas as pd
+import networkx as nx
+import scipy.sparse as sp
+import numpy as np
+
+def build_dependency_graph(csv_path, min_downloads=100):
+    """
+    Lee el dataset de libraries.io y construye el grafo dirigido de PyPI.
+    La arista (A -> B) indica que A depende de B.
+    """
+    df = pd.read_csv(csv_path)
+    # Filtrar solo dependencias runtime
+    df = df[df['Dependency Kind'] == 'runtime']
+    # Eliminar paquetes con pocas descargas
+    active = set(df[df['Downloads'] >= min_downloads]['Project Name'])
+    df = df[df['Project Name'].isin(active) &
+            df['Dependency Name'].isin(active)]
+    G = nx.DiGraph()
+    G.add_edges_from(zip(df['Project Name'], df['Dependency Name']))
+    return G
+
+def build_transition_matrix(G):
+    """
+    Construye H (sub-estocástica) y A (estocástica) desde el grafo.
+    Retorna: H (CSR), vector indicador de dangling nodes a.
+    """
+    n = G.number_of_nodes()
+    nodes = list(G.nodes())
+    idx = {node: i for i, node in enumerate(nodes)}
+    rows, cols, data = [], [], []
+    dangling = []
+    for j, node in enumerate(nodes):
+        out_neighbors = list(G.successors(node))
+        if out_neighbors:
+            w = 1.0 / len(out_neighbors)
+            for nb in out_neighbors:
+                rows.append(idx[nb])
+                cols.append(j)
+                data.append(w)
+        else:
+            dangling.append(j)
+    H = sp.csr_matrix((data, (rows, cols)), shape=(n, n))
+    a = np.zeros(n)
+    a[dangling] = 1.0
+    return H, a, nodes
+\end{lstlisting}
+
+\begin{lstlisting}[style=pythonstyle,
+    caption={PageRank por Power Iteration sobre el grafo PyPI}]
+def pagerank_power(H, a, d=0.85, eps=1e-8, max_iter=300):
+    """
+    H : scipy.sparse.csr_matrix, sub-estocástica por columnas
+    a : np.ndarray, indicador de nodos sumidero (dangling)
+    d : factor de amortiguamiento
+    Retorna: vector r* (distribucion estacionaria) y curva de error L1
+    """
+    n = H.shape[0]
+    r = np.full(n, 1.0 / n)
+    errors = []
+    for k in range(max_iter):
+        dangling_contrib = d * (a @ r) / n
+        r_new = d * H.dot(r) + dangling_contrib + (1.0 - d) / n
+        err = np.abs(r_new - r).sum()
+        errors.append(err)
+        r = r_new
+        if err < eps:
+            print(f"Convergido en k={k+1}, error L1={err:.2e}")
+            break
+    return r, errors
+\end{lstlisting}
+
+\begin{lstlisting}[style=pythonstyle,
+    caption={Detección de comunidades y análisis de cobertura transitiva}]
+import community as community_louvain  # python-louvain
+
+def detect_communities(G):
+    """Aplica Louvain sobre el grafo no dirigido subyacente."""
+    G_undirected = G.to_undirected()
+    partition = community_louvain.best_partition(G_undirected)
+    return partition   # {nodo: cluster_id}
+
+def transitive_coverage(G, top_packages):
+    """
+    Para cada paquete en top_packages, calcula cuántos paquetes
+    dependen de él transitivamente (alcanzabilidad inversa).
+    """
+    G_rev = G.reverse()
+    coverage = {}
+    for pkg in top_packages:
+        reachable = nx.descendants(G_rev, pkg)
+        coverage[pkg] = len(reachable)
+    return coverage
+\end{lstlisting}

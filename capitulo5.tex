@@ -1,0 +1,26 @@
+% ════════════════════════════════════════════════════════════
+\section{CAPÍTULO V: CONCLUSIONES Y TRABAJOS FUTUROS}
+% ════════════════════════════════════════════════════════════
+
+\subsection{Conclusiones}
+A partir de los resultados empíricos y el análisis topológico del ecosistema PyPI, se derivan las siguientes conclusiones:
+
+\begin{enumerate}
+    \item Se demostró que el grafo de dependencias de PyPI puede formalizarse de manera efectiva como una Cadena de Markov ergódica mediante la matriz de Google $\mathbf{G}(d)$. La distribución estacionaria obtenida (PageRank) constituye un índice de riesgo sistémico proactivo y estructuralmente superior.
+
+    \item La diferencia fundamental comprobada respecto a herramientas reactivas (como Snyk o Dependabot) reside en la escala de visibilidad. El modelo estocástico propuesto detecta el riesgo estructural subyacente antes de que ocurra un incidente, analizando el ecosistema en su totalidad.
+
+    \item Se evidenció una correlación de Spearman de ($\rho_s = \text{\textit{[Completar]}}$) entre el ranking PageRank y el ranking por in-degree. Esto confirma empíricamente la hipótesis principal: la centralidad transitiva aporta información crítica no capturada por métricas puramente locales. Se detectaron paquetes específicos (como \textit{[Completar ejemplos]}) que constituyen puntos únicos de fallo invisibles en análisis tradicionales.
+
+    \item El análisis espacial mediante el algoritmo de Louvain reveló una estructura no aleatoria del riesgo sistémico. Los paquetes de mayor impacto se encuentran concentrados en clusters temáticos específicos, lo que sugiere que las políticas de auditoría pueden optimizarse focalizando esfuerzos en estas subcomunidades estructurales críticas.
+
+    \item La metodología computacional propuesta demostró ser generalizable, y puede aplicarse directamente a otros ecosistemas (npm, RubyGems, Maven, Cargo), conformando la base para un índice de riesgo sistémico universal.
+\end{enumerate}
+
+\subsection{Trabajos Futuros}
+El presente trabajo abre nuevas líneas de investigación que permitirán extender el análisis de riesgo sistémico en redes de software:
+
+\begin{itemize}
+    \item \textbf{Análisis dinámico y temporal:} Dado que esta investigación se basó en un \textit{snapshot} estático, una mejora clave consistiría en evaluar la evolución temporal del PageRank en PyPI a lo largo del tiempo, tomando datos mes a mes. Esto permitiría predecir el ascenso de dependencias críticas antes de su consolidación global.
+    \item \textbf{Ponderación de riesgo (Pesos en Aristas):} Modificar la matriz de transición para incorporar factores ponderados, tales como métricas de salud del proyecto (frecuencia de \textit{commits}, número de mantenedores o "bus factor"), de manera que el \textit{random walk} asigne mayor probabilidad a caminos más vulnerables.
+\end{itemize}

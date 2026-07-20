@@ -1,0 +1,13 @@
+polars
+pyarrow
+duckdb
+pandas
+matplotlib
+seaborn
+jupyter
+jupyterlab
+tqdm
+networkx
+scipy
+python-louvain
+powerlaw

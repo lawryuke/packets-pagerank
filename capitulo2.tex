@@ -1,0 +1,239 @@
+% ════════════════════════════════════════════════════════════
+\section{CAPÍTULO II: MARCO TEÓRICO Y CONCEPTUAL}
+% ════════════════════════════════════════════════════════════
+
+\subsection{Antecedentes}
+
+El estudio de los ecosistemas de paquetes de software como redes complejas 
+ha ganado atención creciente en la comunidad de ingeniería de software empírica.
+Los trabajos existentes pueden agruparse en tres líneas principales.
+
+\textbf{Estructura topológica de grafos de dependencias.}
+\textcite{kikas2017structure} analizaron los grafos de dependencias de npm, 
+PyPI y RubyGems, encontrando que los tres presentan distribución de grado 
+con cola pesada, característica de redes libres de escala, con un número 
+reducido de paquetes concentrando la mayoría de las dependencias entrantes. 
+Sin embargo, su trabajo se limitó a métricas topológicas descriptivas 
+(densidad, diámetro, coeficiente de agrupamiento) sin proponer un índice 
+de criticidad sistémica para los nodos individuales.
+
+\textbf{Propagación de vulnerabilidades en ecosistemas de software.}
+\textcite{decan2019impact} estudiaron el impacto transitivo de vulnerabilidades 
+de seguridad registradas en el ecosistema npm, demostrando que un subconjunto 
+pequeño de paquetes concentra una proporción desproporcionada del riesgo 
+propagado. No obstante, su enfoque es retrospectivo: parte de CVEs ya 
+conocidos para medir el daño posterior, sin proponer una métrica proactiva 
+capaz de anticipar dicho riesgo antes del incidente. De forma complementaria, 
+\textcite{zimmermann2019small} identificaron que más del 40\% de los paquetes 
+npm dependen transitivamente de al menos un paquete con un único mantenedor, 
+señalando la fragilidad humana del ecosistema, pero sin formalizar la 
+propagación mediante un modelo estocástico.
+
+\textbf{Aplicaciones de PageRank y centralidad en redes de software.}
+El algoritmo PageRank, introducido por \textcite{brin1998anatomy} como 
+distribución estacionaria de una Cadena de Markov sobre el grafo web, ha 
+sido aplicado posteriormente a redes de citas académicas, redes de 
+colaboración en proyectos open source y grafos de llamadas entre funciones. 
+Sin embargo, su aplicación directa al grafo de dependencias de PyPI como 
+índice de riesgo sistémico no ha sido explorada en la literatura revisada, 
+constituyendo el aporte central del presente trabajo. El algoritmo de 
+detección de comunidades de \textcite{blondel2008louvain} ha sido empleado 
+en redes de co-autoría y co-contribución en GitHub, pero tampoco se ha 
+aplicado al análisis espacial del riesgo en ecosistemas de dependencias.
+
+En síntesis, los antecedentes identifican la existencia del problema 
+(concentración de riesgo en ecosistemas de paquetes) y caracterizan 
+su estructura topológica, pero ninguno propone un modelo estocástico 
+formal que combine Cadenas de Markov, PageRank y análisis de comunidades 
+para construir un índice de riesgo sistémico proactivo sobre PyPI.
+
+
+\subsection{Marco Teórico}
+
+\subsubsection{El Grafo de Dependencias como Espacio de Probabilidad}
+Sea $\Omega = V = \{p_1, p_2, \ldots, p_n\}$ el conjunto de paquetes de PyPI
+(nodos del grafo), $\mathcal{F} = 2^\Omega$ la $\sigma$-álgebra potencia, y
+$\mathbb{P}$ una medida de probabilidad sobre $(\Omega, \mathcal{F})$. La
+distribución estacionaria PageRank $\mathbf{r}^*$ es precisamente la medida
+$\mathbb{P}$ invariante de la Cadena de Markov definida sobre este espacio.
+
+La relación de dependencia define un grafo dirigido $G = (V, E)$ donde la arista
+$(p_i, p_j) \in E$ indica que el paquete $p_i$ \textit{depende de} $p_j$.
+El \textbf{random walk sobre dependencias} modela a un agente que, dado que se
+encuentra en el paquete $p_i$, salta uniformemente a cualquiera de las
+dependencias de $p_i$.
+
+\subsubsection{Cadena de Markov sobre el Grafo de Dependencias}
+\begin{definicion}[Matriz de hipervínculos de dependencias $\mathbf{H}$]
+Sea $\mathbf{L} \in \{0,1\}^{n \times n}$ la matriz de adyacencia del grafo
+dirigido, con $L_{ij}=1$ si $p_j$ depende de $p_i$. La \textbf{matriz de
+transición de dependencias} es:
+\[
+    H_{ij} =
+    \begin{cases}
+        \dfrac{L_{ij}}{\text{outdeg}(j)} & \text{si } \text{outdeg}(j) > 0 \\[6pt]
+        0 & \text{si } \text{outdeg}(j) = 0
+    \end{cases}
+\]
+$\mathbf{H}$ es sub-estocástica por columnas: los paquetes sin dependencias
+salientes (librerías base como \texttt{numpy}) generan columnas nulas.
+\end{definicion}
+
+\begin{definicion}[Corrección de nodos sumidero]
+Sea $\mathbf{a} \in \{0,1\}^n$ el vector indicador de paquetes sin dependencias
+salientes ($a_j = 1 \Leftrightarrow \text{outdeg}(j)=0$). La \textbf{matriz
+estocástica corregida} es:
+\[
+    \mathbf{A} = \mathbf{H} + \frac{1}{n}\mathbf{1}\mathbf{a}^\top
+\]
+Intuitivamente: cuando el agente llega a un paquete sin dependencias, se
+\textit{teleporta} uniformemente a cualquier paquete del ecosistema.
+$\mathbf{A}$ es estocástica por columnas: $\mathbf{1}^\top \mathbf{A} =
+\mathbf{1}^\top$.
+\end{definicion}
+
+\begin{definicion}[Matriz de Google aplicada a dependencias $\mathbf{G}(d)$]
+Para $d \in (0,1)$ (factor de amortiguamiento), la \textbf{matriz de Google
+del ecosistema} es:
+\[
+    \boxed{\mathbf{G}(d) = d\,\mathbf{A} + \frac{1-d}{n}\mathbf{E}}
+\]
+donde $\mathbf{E} = \mathbf{1}\mathbf{1}^\top$. Con probabilidad $d$ el agente
+sigue una dependencia real; con probabilidad $1-d$ salta a un paquete aleatorio
+del ecosistema. $\mathbf{G}(d)$ es positiva, irreducible y aperiódica, lo que
+garantiza, por el Teorema de Perron–Frobenius, la existencia y unicidad de
+$\mathbf{r}^*$.
+\end{definicion}
+
+\begin{teorema}[Perron–Frobenius aplicado al ecosistema PyPI]
+Sea $\mathbf{G}(d)$ la matriz de Google del ecosistema de dependencias con
+$d \in (0,1)$. Entonces:
+\begin{enumerate}
+    \item $\lambda_1 = 1$ es el autovalor dominante simple de $\mathbf{G}(d)$.
+    \item El autovector correspondiente $\mathbf{r}^*$ tiene componentes
+          estrictamente positivas y $\|\mathbf{r}^*\|_1 = 1$.
+    \item Para cualquier distribución inicial $\mathbf{r}^{(0)}$:
+          \[
+              \lim_{k\to\infty} \mathbf{G}(d)^k \mathbf{r}^{(0)} = \mathbf{r}^*,
+              \quad \text{con tasa } \|\mathbf{r}^{(k)} - \mathbf{r}^*\|_1 = O(d^k).
+          \]
+\end{enumerate}
+\end{teorema}
+
+\subsubsection{Interpretación del PageRank como Riesgo Sistémico}
+El PageRank $r_i^*$ de un paquete $p_i$ puede interpretarse de dos formas
+equivalentes y complementarias:
+\begin{enumerate}
+    \item \textbf{Probabilística}: es la fracción de tiempo que un agente que
+          navega aleatoriamente el grafo de dependencias pasa en el paquete $p_i$.
+          Un valor alto indica que $p_i$ es ``ineludible'' en el ecosistema.
+    \item \textbf{Estructural}: es proporcional a la suma ponderada de los
+          PageRanks de todos los paquetes que dependen de $p_i$, de forma
+          transitiva. Captura tanto la centralidad directa (muchos usuarios)
+          como la transitiva (usuarios de usuarios).
+\end{enumerate}
+Esta segunda interpretación es la que distingue al PageRank del simple in-degree:
+un paquete usado por pocos paquetes de altísima centralidad puede tener más
+PageRank que uno usado directamente por muchos paquetes de baja centralidad.
+
+\subsubsection{Método de la Potencia (Power Iteration)}
+El algoritmo iterativo aplica repetidamente:
+\[
+    \mathbf{r}^{(k+1)} = \mathbf{G}(d)\,\mathbf{r}^{(k)}
+    = d\!\left(\mathbf{H}\mathbf{r}^{(k)} +
+      \frac{\mathbf{a}^\top\mathbf{r}^{(k)}}{n}\mathbf{1}\right)
+      + \frac{1-d}{n}\mathbf{1}
+\]
+La formulación explota la estructura dispersa de $\mathbf{H}$ (el grafo de
+PyPI tiene densidad $\delta \ll 1$) y evita materializar $\mathbf{G}(d)$
+en memoria, lo que es crítico para redes de cientos de miles de nodos.
+
+\subsubsection{Detección de Comunidades y Análisis Espacial}
+El análisis espacial del ecosistema se realiza mediante la detección de
+comunidades con el \textbf{algoritmo de Louvain}, que maximiza la modularidad:
+\[
+    Q = \frac{1}{2m} \sum_{ij} \left[ A_{ij} - \frac{k_i k_j}{2m} \right]
+    \delta(c_i, c_j)
+\]
+donde $A_{ij}$ es la matriz de adyacencia, $k_i$ el grado del nodo $i$,
+$m$ el número total de aristas y $\delta(c_i, c_j) = 1$ si los nodos $i$
+y $j$ pertenecen a la misma comunidad. Los clusters resultantes representan
+subcomunidades temáticas del ecosistema (data science, web, criptografía, etc.)
+que pueden visualizarse como un \textbf{mapa espacial del riesgo}.
+
+\subsection{Marco Conceptual}
+
+Los siguientes conceptos indican el vocabulario técnico del presente trabajo.
+
+\textbf{Ecosistema de software.}
+Conjunto de paquetes de software publicados en un gestor de paquetes (en este 
+caso PyPI), junto con las relaciones de dependencia entre ellos, sus 
+mantenedores y su comunidad de usuarios. El término ``ecosistema'' enfatiza 
+que los paquetes no existen de forma aislada sino en una red de 
+interdependencias funcionales \autocite{kikas2017structure}.
+
+\textbf{Grafo dirigido de dependencias.}
+Representación formal $G = (V, E)$ donde cada nodo $v \in V$ es un paquete 
+de PyPI y cada arista dirigida $(p_i, p_j) \in E$ indica que el paquete 
+$p_i$ declara al paquete $p_j$ como dependencia \texttt{runtime}. La 
+dirección de la arista modela la relación de dependencia: $p_i$ requiere 
+a $p_j$ para funcionar.
+
+\textbf{Dependencia transitiva.}
+Si el paquete $A$ depende de $B$, y $B$ depende de $C$, entonces $A$ 
+depende transitivamente de $C$, aunque no lo declare explícitamente. La 
+vulnerabilidad o fallo de $C$ afecta a $A$ a través de la cadena 
+$A \to B \to C$. Las dependencias transitivas son invisibles para análisis 
+locales pero capturadas por el random walk de la Cadena de Markov.
+
+\textbf{Riesgo sistémico.}
+En el contexto de ecosistemas de software, el riesgo sistémico de un paquete 
+es la magnitud del daño en cascada que su fallo o compromiso generaría sobre 
+el resto del ecosistema. Se distingue del riesgo local (si el paquete tiene 
+una vulnerabilidad activa) por ser una propiedad estructural de la red, 
+independiente de la existencia previa de CVEs registrados.
+
+\textbf{Nodo sumidero (\textit{dangling node}).}
+Paquete sin dependencias salientes declaradas (\texttt{out-degree} $= 0$). 
+Típicamente corresponde a librerías base altamente estables como 
+\texttt{numpy} o \texttt{cryptography}. Su presencia genera columnas nulas 
+en la matriz de transición $\mathbf{H}$, rompiendo la condición de 
+estocasticidad y requiriendo corrección explícita mediante la matriz 
+$\mathbf{A}$.
+
+\textbf{Cadena de Markov ergódica.}
+Proceso estocástico en tiempo discreto $\{X_t\}_{t \geq 0}$ sobre un espacio 
+de estados finito $V$, que satisface la propiedad de Markov 
+($P(X_{t+1} | X_t, \ldots, X_0) = P(X_{t+1} | X_t)$) y es ergódico 
+(irreducible y aperiódico). La ergodicidad garantiza la existencia y unicidad 
+de una distribución estacionaria $\boldsymbol{\pi}$ tal que 
+$\boldsymbol{\pi} = \mathbf{P}\boldsymbol{\pi}$.
+
+\textbf{Distribución estacionaria (PageRank).}
+Vector de probabilidad $\mathbf{r}^* \in \mathbb{R}^n$ invariante bajo la 
+acción de la matriz de transición: $\mathbf{r}^* = \mathbf{G}(d)\,\mathbf{r}^*$. 
+Representa la fracción de tiempo que un agente que navega el grafo de 
+dependencias indefinidamente pasa en cada paquete. En este trabajo, 
+$\mathbf{r}^*$ constituye el índice de riesgo sistémico.
+
+\textbf{Factor de amortiguamiento ($d$).}
+Parámetro $d \in (0,1)$ de la matriz de Google $\mathbf{G}(d)$ que modela 
+la probabilidad de que el agente siga una dependencia real en lugar de 
+teleportarse a un paquete aleatorio. Controla el balance entre centralidad 
+local (bajo $d$) y centralidad global transitiva (alto $d$), y determina 
+la tasa de convergencia geométrica $O(d^k)$ del método de la potencia.
+
+\textbf{Centralidad local vs.\ centralidad transitiva.}
+La centralidad local de un paquete es su in-degree: cuántos otros paquetes 
+lo usan directamente. La centralidad transitiva (PageRank) pondera además 
+la importancia de quienes lo usan: un paquete usado por pocas librerías 
+muy importantes puede tener mayor PageRank que uno usado por muchos paquetes 
+de baja relevancia. Esta distinción es el fundamento de la hipótesis 
+principal del trabajo.
+
+\textbf{Comunidad o \textit{cluster} del ecosistema.}
+Subconjunto de nodos del grafo con mayor densidad de aristas entre sí que 
+hacia el resto de la red. En el ecosistema PyPI, las comunidades corresponden 
+a subcomunidades temáticas (data science, desarrollo web, criptografía, etc.). 
+Su detección mediante el algoritmo de Louvain permite analizar la distribución 
+\textit{espacial} del riesgo sistémico entre distintas áreas funcionales del ecosistema.

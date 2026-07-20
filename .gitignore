@@ -1,0 +1,13 @@
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.bcf
+*.run.xml
+*.gz
+dataset/
+code/.venv
