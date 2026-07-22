@@ -155,21 +155,34 @@ def analyze_centrality_and_communities(G, H, a, nodes):
 
 def analyze_transitive_coverage(G, top_packages):
     print("\n--- 4.5 Análisis de cobertura transitiva ---")
-    print("Calculando cobertura transitiva de los Top 10 paquetes...")
+    print("Calculando cobertura transitiva individual y acumulada...")
     G_rev = G.reverse()
     
-    covered_nodes = set()
-    for pkg in top_packages:
+    covered_nodes_accum = set()
+    n = G.number_of_nodes()
+    
+    print("\nCobertura Transitiva (Individual vs Acumulada):")
+    print(f"{'Top':<4} | {'Paquete':<20} | {'Indiv. Nodos':<12} | {'% Indiv.':<10} | {'Acum. Nodos':<12} | {'% Acum.':<10}")
+    print("-" * 85)
+    
+    for i, pkg in enumerate(top_packages, 1):
+        indiv_covered = set()
         if pkg in G_rev:
             # descendants en el grafo invertido son los paquetes que dependen de `pkg`
             reachable = nx.descendants(G_rev, pkg)
-            covered_nodes.update(reachable)
-            covered_nodes.add(pkg)
+            indiv_covered.update(reachable)
+            indiv_covered.add(pkg)
             
-    n = G.number_of_nodes()
-    coverage_pct = (len(covered_nodes) / n) * 100
-    print(f"Los Top 10 paquetes cubren transitivamente {len(covered_nodes)} paquetes.")
-    print(f"Esto representa el {coverage_pct:.2f}% de todo el ecosistema PyPI activo.")
+            # Acumulado
+            covered_nodes_accum.update(indiv_covered)
+            
+        indiv_pct = (len(indiv_covered) / n) * 100
+        accum_pct = (len(covered_nodes_accum) / n) * 100
+        
+        print(f"{i:<4} | {pkg:<20} | {len(indiv_covered):<12} | {indiv_pct:>7.2f}% | {len(covered_nodes_accum):<12} | {accum_pct:>7.2f}%")
+        
+    print(f"\nEn total, los Top 10 paquetes cubren transitivamente {len(covered_nodes_accum)} paquetes.")
+    print(f"Esto representa el {(len(covered_nodes_accum) / n) * 100:.2f}% de todo el ecosistema PyPI activo.")
 
 def main():
     start_time = time.time()

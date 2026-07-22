@@ -33,17 +33,18 @@ Recursos propios (costos de energía eléctrica y acceso a internet). Herramient
 La información para esta investigación no se obtendrá mediante instrumentos cualitativos o encuestas de campo, sino a través de la extracción, procesamiento y estructuración de bases de datos públicas disponibles para la comunidad académica.
 
 \subsubsection{Fuente de Datos: libraries.io – PyPI dependency graph}
-El dataset de \textit{libraries.io} \autocite{librariesio} provee un snapshot
-completo de las dependencias declaradas entre paquetes de PyPI en formato CSV,
-con los siguientes campos relevantes:
+Para este trabajo se utilizó la versión 1.6.0 del dataset público \textit{Libraries.io Open Source Repository and Dependency Metadata} \autocite{librariesio}, correspondiente a un snapshot publicado el 12 de enero de 2020. El mismo se encuentra disponible en la plataforma Zenodo (DOI: \texttt{10.5281/zenodo.3626071}) y se distribuye bajo la licencia \textit{Creative Commons Attribution-ShareAlike 4.0 International}.
+
+A nivel global, este repositorio contiene información de 34 manejadores de paquetes distintos, distribuido en múltiples archivos CSV que superan los 120 GB en su tamaño original descomprimido. En particular, los datos maestros utilizados se concentran en \texttt{projects} (4,609,663 registros, 1.4 GB) y \texttt{dependencies} (190,388,563 dependencias declaradas, 21 GB).
+
+Para el ecosistema de Python (PyPI), se extrajeron los siguientes campos relevantes:
 \begin{itemize}
     \item \texttt{Project Name}: nombre del paquete dependiente.
     \item \texttt{Dependency Name}: nombre del paquete requerido.
     \item \texttt{Dependency Kind}: tipo de dependencia (\texttt{runtime},
           \texttt{development}, \texttt{optional}).
 \end{itemize}
-El análisis se restringe a dependencias de tipo \texttt{runtime}, que son las
-únicas relevantes para la propagación de fallos en producción. 
+El análisis se restringe a dependencias de tipo \texttt{runtime}, que son las únicas relevantes para la propagación de fallos en producción. Luego del filtrado y la selección específica para el ecosistema de PyPI, el subconjunto final procesado en este estudio consta de 849,606 paquetes activos (nodos) y 6,976,793 dependencias de tipo \textit{runtime} (aristas).
 
 \subsubsection{Pipeline de análisis}
 \begin{enumerate}
@@ -75,99 +76,14 @@ El análisis se restringe a dependencias de tipo \texttt{runtime}, que son las
           del porcentaje del ecosistema cubierto.
 \end{enumerate}
 
-\subsubsection{Implementación en Python}
-\begin{lstlisting}[style=pythonstyle,
-    caption={Construcción del grafo de dependencias desde libraries.io}]
-import pandas as pd
-import networkx as nx
-import scipy.sparse as sp
-import numpy as np
+\subsubsection{Implementación del Pipeline de Datos}
+Para procesar el volumen masivo de datos (millones de nodos y aristas) sin comprometer la memoria, la implementación final del modelo no utilizó scripts monolíticos, sino un \textit{pipeline} estructurado en etapas:
 
-def build_dependency_graph(csv_path, min_downloads=100):
-    """
-    Lee el dataset de libraries.io y construye el grafo dirigido de PyPI.
-    La arista (A -> B) indica que A depende de B.
-    """
-    df = pd.read_csv(csv_path)
-    # Filtrar solo dependencias runtime
-    df = df[df['Dependency Kind'] == 'runtime']
-    # Eliminar paquetes con pocas descargas
-    active = set(df[df['Downloads'] >= min_downloads]['Project Name'])
-    df = df[df['Project Name'].isin(active) &
-            df['Dependency Name'].isin(active)]
-    G = nx.DiGraph()
-    G.add_edges_from(zip(df['Project Name'], df['Dependency Name']))
-    return G
+\begin{itemize}
+    \item \textbf{Procesamiento de Datos (ETL):} Los datos brutos originales fueron convertidos al formato columnar Apache Parquet utilizando la librería \texttt{pyarrow}. Esto permitió cargar y filtrar eficientemente los millones de registros (filtrando exclusivamente el ecosistema PyPI y las dependencias de ejecución real o \textit{runtime}) en tiempos de milisegundos usando \texttt{pandas}.
+    \item \textbf{Construcción del Grafo y Matrices:} Se utilizó \texttt{networkx} para modelar la topología de la red dirigida. Para realizar los cálculos algebraicos, la matriz de adyacencia se tradujo a una matriz rala (Sparse Matrix) en formato CSR (Compressed Sparse Row) mediante \texttt{scipy.sparse}, lo que redujo drásticamente el consumo de memoria RAM.
+    \item \textbf{Método de la Potencia Vectorizado:} La iteración de la Matriz de Google no se realizó con bucles \texttt{for} estándar, sino a través de operaciones matriciales vectorizadas utilizando \texttt{numpy}. El manejo explícito de los "nodos sumidero" (paquetes sin dependencias) se resolvió algebraicamente sin modificar la matriz rala original, preservando la eficiencia temporal.
+    \item \textbf{Detección de Comunidades:} Para identificar los clusters semánticos, se integró la librería \texttt{python-louvain} (basada en heurísticas de optimización de modularidad), ejecutada sobre la proyección no dirigida del grafo de dependencias.
+\end{itemize}
 
-def build_transition_matrix(G):
-    """
-    Construye H (sub-estocástica) y A (estocástica) desde el grafo.
-    Retorna: H (CSR), vector indicador de dangling nodes a.
-    """
-    n = G.number_of_nodes()
-    nodes = list(G.nodes())
-    idx = {node: i for i, node in enumerate(nodes)}
-    rows, cols, data = [], [], []
-    dangling = []
-    for j, node in enumerate(nodes):
-        out_neighbors = list(G.successors(node))
-        if out_neighbors:
-            w = 1.0 / len(out_neighbors)
-            for nb in out_neighbors:
-                rows.append(idx[nb])
-                cols.append(j)
-                data.append(w)
-        else:
-            dangling.append(j)
-    H = sp.csr_matrix((data, (rows, cols)), shape=(n, n))
-    a = np.zeros(n)
-    a[dangling] = 1.0
-    return H, a, nodes
-\end{lstlisting}
-
-\begin{lstlisting}[style=pythonstyle,
-    caption={PageRank por Power Iteration sobre el grafo PyPI}]
-def pagerank_power(H, a, d=0.85, eps=1e-8, max_iter=300):
-    """
-    H : scipy.sparse.csr_matrix, sub-estocástica por columnas
-    a : np.ndarray, indicador de nodos sumidero (dangling)
-    d : factor de amortiguamiento
-    Retorna: vector r* (distribucion estacionaria) y curva de error L1
-    """
-    n = H.shape[0]
-    r = np.full(n, 1.0 / n)
-    errors = []
-    for k in range(max_iter):
-        dangling_contrib = d * (a @ r) / n
-        r_new = d * H.dot(r) + dangling_contrib + (1.0 - d) / n
-        err = np.abs(r_new - r).sum()
-        errors.append(err)
-        r = r_new
-        if err < eps:
-            print(f"Convergido en k={k+1}, error L1={err:.2e}")
-            break
-    return r, errors
-\end{lstlisting}
-
-\begin{lstlisting}[style=pythonstyle,
-    caption={Detección de comunidades y análisis de cobertura transitiva}]
-import community as community_louvain  # python-louvain
-
-def detect_communities(G):
-    """Aplica Louvain sobre el grafo no dirigido subyacente."""
-    G_undirected = G.to_undirected()
-    partition = community_louvain.best_partition(G_undirected)
-    return partition   # {nodo: cluster_id}
-
-def transitive_coverage(G, top_packages):
-    """
-    Para cada paquete en top_packages, calcula cuántos paquetes
-    dependen de él transitivamente (alcanzabilidad inversa).
-    """
-    G_rev = G.reverse()
-    coverage = {}
-    for pkg in top_packages:
-        reachable = nx.descendants(G_rev, pkg)
-        coverage[pkg] = len(reachable)
-    return coverage
-\end{lstlisting}
+Todo el código fuente desarrollado para este trabajo, incluyendo los scripts de preprocesamiento, análisis de grafos y generación de visualizaciones, se encuentra estructurado de manera modular y es completamente reproducible.
